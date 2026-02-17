@@ -51,8 +51,8 @@ const parsed = envSchema.safeParse(
           process.env.DATABASE_URL ??
           "postgresql://contractflow:contractflow@localhost:5432/contractflow?schema=public",
         REDIS_URL: process.env.REDIS_URL ?? "redis://localhost:6379",
-        AUTH_SECRET: process.env.AUTH_SECRET,
-        NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+        AUTH_SECRET: process.env.AUTH_SECRET ?? "build-only-secret",
+        NEXTAUTH_URL: process.env.NEXTAUTH_URL ?? process.env.APP_URL ?? "http://localhost:3000",
         RATE_LIMIT_LOGIN_MAX: process.env.RATE_LIMIT_LOGIN_MAX,
         RATE_LIMIT_LOGIN_WINDOW_MS: process.env.RATE_LIMIT_LOGIN_WINDOW_MS,
         RATE_LIMIT_REGISTER_MAX: process.env.RATE_LIMIT_REGISTER_MAX,
