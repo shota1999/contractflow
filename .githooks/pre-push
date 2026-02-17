@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+if [ "$SKIP_PREPUSH" = "1" ]; then
+  echo "Skipping pre-push checks (SKIP_PREPUSH=1)"
+  exit 0
+fi
+
+echo "Running pre-push checks..."
+npm run lint
+npm run typecheck
+npm run build
+npm test
