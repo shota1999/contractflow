@@ -1,0 +1,151 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: contractflow
+      POSTGRES_PASSWORD: contractflow
+      POSTGRES_DB: contractflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - contractflow_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contractflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    command: npm run dev
+    env_file:
+      - .env
+    environment:
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_SECRET: ${AUTH_SECRET:-change-me}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://contractflow:contractflow@db:5432/contractflow?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const net=require('net');const socket=net.connect(3000,'127.0.0.1');socket.on('connect',()=>{socket.end();process.exit(0)});socket.on('error',()=>process.exit(1));\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    image: node:20-alpine
+    working_dir: /app
+    command: npm run worker
+    env_file:
+      - .env
+    environment:
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_SECRET: ${AUTH_SECRET:-change-me}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://contractflow:contractflow@db:5432/contractflow?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    volumes:
+      - ./:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const net=require('net');const url=new URL(process.env.REDIS_URL || 'redis://redis:6379');const socket=net.connect(Number(url.port)||6379,url.hostname);socket.on('connect',()=>{socket.end();process.exit(0)});socket.on('error',()=>process.exit(1));\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  web-prod:
+    build:
+      context: .
+      target: runner
+    profiles: ["prod"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_SECRET: ${AUTH_SECRET:-change-me}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://contractflow:contractflow@db:5432/contractflow?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const net=require('net');const socket=net.connect(3000,'127.0.0.1');socket.on('connect',()=>{socket.end();process.exit(0)});socket.on('error',()=>process.exit(1));\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  worker-prod:
+    build:
+      context: .
+      target: worker
+    profiles: ["prod"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      AUTH_SECRET: ${AUTH_SECRET:-change-me}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://contractflow:contractflow@db:5432/contractflow?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"const net=require('net');const url=new URL(process.env.REDIS_URL || 'redis://redis:6379');const socket=net.connect(Number(url.port)||6379,url.hostname);socket.on('connect',()=>{socket.end();process.exit(0)});socket.on('error',()=>process.exit(1));\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  contractflow_db:

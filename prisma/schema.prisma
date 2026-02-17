@@ -1,0 +1,375 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum DocumentType {
+  CONTRACT
+  PROPOSAL
+}
+
+enum DocumentStatus {
+  DRAFT
+  REVIEW
+  SENT
+  SIGNED
+  PAID
+}
+
+enum DocumentGenerationStatus {
+  IDLE
+  QUEUED
+  PROCESSING
+  FAILED
+  SUCCEEDED
+}
+
+enum ApprovalStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+}
+
+enum DraftJobStatus {
+  QUEUED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+enum AuditAction {
+  INVITE_CREATED
+  INVITE_ACCEPTED
+  MEMBER_ROLE_UPDATED
+  MEMBER_REMOVED
+  DOCUMENT_CREATED
+  DOCUMENT_UPDATED
+  DOCUMENT_SECTIONS_UPDATED
+  DOCUMENT_SHARING_UPDATED
+  DOCUMENT_APPROVAL_UPDATED
+  DRAFT_ENQUEUED
+  DRAFT_SUCCEEDED
+  DRAFT_FAILED
+}
+
+enum AuditTargetType {
+  ORGANIZATION
+  INVITE
+  MEMBER
+  DOCUMENT
+  DOCUMENT_SECTION
+  DRAFT
+}
+
+enum NotificationType {
+  DOCUMENT_REVIEW_REQUESTED
+  DOCUMENT_APPROVED
+  DOCUMENT_SENT_BACK
+}
+
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+  clients     Client[]
+  projects    Project[]
+  documents   Document[]
+  invites     Invite[]
+  auditEvents AuditEvent[]
+  draftJobs   DraftJob[]
+  templates   Template[]
+  notifications Notification[]
+}
+
+model User {
+  id          String       @id @default(cuid())
+  email       String       @unique
+  name        String
+  passwordHash String
+  emailVerifiedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+  documents   Document[]   @relation("DocumentAuthor")
+  comments    Comment[]
+  auditEvents AuditEvent[] @relation("AuditActor")
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
+  templates   Template[]   @relation("TemplateCreator")
+  approvalComments ApprovalComment[] @relation("ApprovalActor")
+  notifications Notification[] @relation("NotificationRecipient")
+  notificationActs Notification[] @relation("NotificationActor")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([token])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Template {
+  id             String         @id @default(cuid())
+  organizationId String
+  createdById    String?
+  name           String
+  description    String?
+  type           DocumentType
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  createdBy      User?          @relation("TemplateCreator", fields: [createdById], references: [id])
+  sections       TemplateSection[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model TemplateSection {
+  id         String   @id @default(cuid())
+  templateId String
+  title      String
+  content    String
+  order      Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  template   Template @relation(fields: [templateId], references: [id])
+
+  @@unique([templateId, order])
+  @@index([templateId])
+}
+
+model Membership {
+  id             String         @id @default(cuid())
+  role           MembershipRole
+  organizationId String
+  userId         String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  user           User           @relation(fields: [userId], references: [id])
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model Client {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  industry       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  projects       Project[]
+  documents      Document[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model Project {
+  id             String       @id @default(cuid())
+  organizationId String
+  clientId       String?
+  name           String
+  description    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  client         Client?      @relation(fields: [clientId], references: [id])
+  documents      Document[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([clientId])
+}
+
+model Invite {
+  id             String         @id @default(cuid())
+  organizationId String
+  email          String
+  role           MembershipRole
+  token          String         @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+model AuditEvent {
+  id             String         @id @default(cuid())
+  organizationId String
+  actorUserId    String?
+  action         AuditAction
+  targetType     AuditTargetType
+  targetId       String?
+  metadata       Json
+  createdAt      DateTime       @default(now())
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  actor          User?          @relation("AuditActor", fields: [actorUserId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([organizationId, action])
+  @@index([organizationId, targetType])
+}
+
+model Document {
+  id             String         @id @default(cuid())
+  organizationId String
+  clientId       String?
+  projectId      String?
+  createdById    String?
+  type           DocumentType
+  status         DocumentStatus @default(DRAFT)
+  approvalStatus ApprovalStatus @default(DRAFT)
+  generationStatus DocumentGenerationStatus @default(IDLE)
+  title          String
+  version        Int            @default(1)
+  publicToken    String         @unique @default(cuid())
+  isPublic       Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  client         Client?        @relation(fields: [clientId], references: [id])
+  project        Project?       @relation(fields: [projectId], references: [id])
+  createdBy      User?          @relation("DocumentAuthor", fields: [createdById], references: [id])
+  sections       DocumentSection[]
+  comments       Comment[]
+  draftJobs      DraftJob[]
+  approvalComments ApprovalComment[]
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([status])
+  @@index([type])
+}
+
+model DraftJob {
+  id             String         @id @default(cuid())
+  organizationId String
+  documentId     String
+  status         DraftJobStatus @default(QUEUED)
+  attempts       Int            @default(0)
+  lastError      String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  document       Document       @relation(fields: [documentId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([documentId, createdAt(sort: Desc)])
+  @@index([organizationId, status])
+}
+
+model DocumentSection {
+  id         String   @id @default(cuid())
+  documentId String
+  title      String
+  content    String
+  order      Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  document   Document @relation(fields: [documentId], references: [id])
+
+  @@unique([documentId, order])
+  @@index([documentId])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  documentId String
+  authorId   String?
+  body       String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  document   Document @relation(fields: [documentId], references: [id])
+  author     User?    @relation(fields: [authorId], references: [id])
+
+  @@index([documentId])
+  @@index([authorId])
+}
+
+model ApprovalComment {
+  id         String         @id @default(cuid())
+  documentId String
+  actorUserId String?
+  status     ApprovalStatus
+  note       String
+  createdAt  DateTime       @default(now())
+  document   Document       @relation(fields: [documentId], references: [id])
+  actor      User?          @relation("ApprovalActor", fields: [actorUserId], references: [id])
+
+  @@index([documentId, createdAt(sort: Desc)])
+  @@index([actorUserId])
+}
+
+model Notification {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String
+  actorUserId    String?
+  type           NotificationType
+  metadata       Json
+  readAt         DateTime?
+  createdAt      DateTime         @default(now())
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  user           User             @relation("NotificationRecipient", fields: [userId], references: [id])
+  actor          User?            @relation("NotificationActor", fields: [actorUserId], references: [id])
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, readAt])
+}
+
+model Lead {
+  id          String   @id @default(cuid())
+  email       String
+  source      String
+  page        String
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+  createdAt   DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt(sort: Desc)])
+}
