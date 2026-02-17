@@ -4,6 +4,10 @@ import Home from "@/app/page";
 describe("Home", () => {
   it("renders the product headline", () => {
     render(<Home />);
-    expect(screen.getByRole("heading", { name: /ContractFlow AI/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /AI-powered proposal workflows built for marketing agencies/i,
+      }),
+    ).toBeInTheDocument();
   });
 });
