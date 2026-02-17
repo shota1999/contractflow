@@ -41,7 +41,8 @@ const envSchema = z.object({
   SENTRY_RELEASE: z.string().min(1).optional(),
 });
 
-const shouldSkipValidation = process.env.NEXT_PHASE === "phase-production-build";
+const shouldSkipValidation =
+  process.env.NEXT_PHASE === "phase-production-build" || process.env.NODE_ENV === "test";
 
 const parsed = envSchema.safeParse(
   shouldSkipValidation
