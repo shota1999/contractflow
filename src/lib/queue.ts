@@ -28,7 +28,7 @@ const buildQueueConnection = () => {
 };
 
 let cachedConnection: ReturnType<typeof buildQueueConnection> | null = null;
-const getQueueConnection = () => {
+export const getQueueConnection = () => {
   if (!cachedConnection) {
     cachedConnection = buildQueueConnection();
   }

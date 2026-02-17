@@ -1,7 +1,7 @@
 import { Worker } from "bullmq";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
-import { documentQueueName, emailQueueName, queueConnection } from "@/lib/queue";
+import { documentQueueName, emailQueueName, getQueueConnection } from "@/lib/queue";
 import * as service from "@/features/documents/service";
 import { createEvent, type AuditAction, type AuditTargetType } from "@/features/audit";
 import * as draftJobs from "@/features/jobs/drafts/service";
@@ -20,6 +20,8 @@ const verificationEmailSchema = z.object({
   name: z.string().optional().nullable(),
   token: z.string().min(1),
 });
+
+const queueConnection = getQueueConnection();
 
 const worker = new Worker(
   documentQueueName,
