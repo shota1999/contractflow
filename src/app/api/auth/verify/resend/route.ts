@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     }
 
     const result = await resendVerification(user.id);
-    const isDev = process.env.NODE_ENV !== "production";
+    const isDev = process.env.NODE_ENV !== "production" || env.ALLOW_TEST_TOKENS;
 
     return NextResponse.json(
       successResponse({

@@ -11,6 +11,13 @@
 **Docker**
 1. Dev stack (bind mounts, hot reload): `docker compose up --build`
 
+**Run Production Stack Locally**
+1. `cp .env.production.example .env.production`
+2. `docker compose -f docker-compose.prod.yml up -d --build`
+3. Apply migrations:
+   - `docker compose -f docker-compose.prod.yml exec web npx prisma migrate deploy`
+4. Open `http://localhost`
+
 **Production Deploy (Railway)**
 This repo includes Railway config files: `railway.json` and `nixpacks.toml`.
 1. Create a Railway project and connect this GitHub repo.
@@ -47,8 +54,15 @@ Railway UI overrides:
 3. Unit tests: `npm test`
 4. E2E (Playwright): `npm run test:e2e`
 
+**Run E2E in CI (Compose)**
+CI starts the production compose stack, waits for `/api/health`, runs Playwright smoke tests,
+and then tears the stack down. Locally you can emulate this by running the production stack
+and then:
+- `E2E_EXTERNAL=true E2E_BASE_URL=http://localhost npm run test:e2e`
+
 **Environment**
 Required for Railway deploy:
+- `APP_DOMAIN`: Domain for Caddy (local compose). Use `localhost` for local prod.
 - `APP_URL`: Base URL for the app (example `https://your-domain.com`)
 - `NEXTAUTH_URL`: NextAuth base URL (match `APP_URL`)
 - `AUTH_SECRET`: NextAuth secret
@@ -70,6 +84,7 @@ Docker-only (local dev):
 - `POSTGRES_DB`: Postgres database for Docker
 
 Optional toggles:
+- `ALLOW_TEST_TOKENS`: `true` to return verification tokens for local E2E
 - `NEXT_PUBLIC_ANALYTICS`: `true` or `false` to enable client event logging
 - `RATE_LIMIT_LOGIN_MAX`: Optional rate limit for login
 - `RATE_LIMIT_LOGIN_WINDOW_MS`: Optional rate limit window for login

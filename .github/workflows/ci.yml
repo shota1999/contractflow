@@ -49,3 +49,35 @@ jobs:
           else
             echo "No tests found, skipping."
           fi
+
+      - name: Prepare production env
+        run: |
+          cp .env.production.example .env.production
+          sed -i 's/ALLOW_TEST_TOKENS=false/ALLOW_TEST_TOKENS=true/' .env.production
+
+      - name: Start production compose
+        run: docker compose -f docker-compose.prod.yml up -d --build
+
+      - name: Wait for health
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://localhost/api/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Health check failed"
+          exit 1
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E Smoke
+        env:
+          E2E_EXTERNAL: "true"
+          E2E_BASE_URL: "http://localhost"
+        run: npm run test:e2e
+
+      - name: Tear down compose
+        if: always()
+        run: docker compose -f docker-compose.prod.yml down -v
